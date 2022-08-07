@@ -1,0 +1,151 @@
+1. Enviar os dados para o hdfs
+
+ cd docker-bigdata
+
+# Arquivos enviados para a pasta input
+
+ sudo mv projeto spark/input/
+
+ hdfs dfs -put /input/projeto/ /user/kleyton/projeto_final_spark
+#Conferir: 
+ hdfs dfs -ls -R /user/kleyton/projeto_final_spark/projeto
+
+
+2. Otimizar todos os dados do hdfs para uma tabela Hive particionada por município.
+
+
+#Acessar o hive
+docker exec -it hive-server bash
+
+#Acessar o beeline
+beeline -u jdbc:hive2://localhost:10000
+
+#mostrar databases disponiveis
+show databases;
+
+#como não tinha criei um com meu nome
+create database kleyton;
+
+#criação da tabela particionada por município.
+#tabela Raw
+create table covid19 (
+regiao string,
+estado string,
+municipio string,
+coduf int,
+codmun int,
+codRegiaoSaude int,
+nomeRegiaoSaude string,
+data date,
+semanaEpi int,
+populacaoTCU2019 int,
+casosAcumulado int,
+casosNovos int,
+obitosAcumulado int,
+obitosNovos int,
+Recuperadosnovos int,
+emAcompanhamentoNovos int,
+interiormetropolitana int
+)
+row format delimited 
+fields terminated by ';'
+lines terminated by '\n'
+stored as textfile
+location '/user/kleyton/projeto_final_spark/municipio';
+
+
+#popular tabela raw covid19;
+load data inpath '/user/kleyton/projeto_final_spark/projeto' overwrite into table covid19;
+
+# Como Existe informações de PAIS, REGIÃO e MUNICÍPIOS, optei por separa em 3 tabelas. Sendo assim somente a tabela de município será particionada;
+
+#Criação Tabela covid19 Pais
+create table covid19_pais(
+regiao string,
+coduf int,
+data date,
+semanaEpi int,
+populacaoTCU2019 int,
+casosAcumulado int,
+casosNovos int,
+obitosAcumulado int,
+obitosNovos int,
+Recuperadosnovos int,
+emAcompanhamentoNovos int,
+interiormetropolitana int
+)
+
+#Criação Tabela covid19 Regiões
+create table covid19_regiao(
+regiao string,
+estado string,
+coduf int,
+data date,
+semanaEpi int,
+populacaoTCU2019 int,
+casosAcumulado int,
+casosNovos int,
+obitosAcumulado int,
+obitosNovos int,
+Recuperadosnovos int,
+emAcompanhamentoNovos int,
+interiormetropolitana int
+)
+
+#Criação Tabela covid19 Municípios
+create table covid19_municipio(
+regiao string,
+estado string,
+municipio string,
+coduf int,
+codRegiaoSaude int,
+nomeRegiaoSaude string,
+data date,
+semanaEpi int,
+populacaoTCU2019 int,
+casosAcumulado int,
+casosNovos int,
+obitosAcumulado int,
+obitosNovos int,
+Recuperadosnovos int,
+emAcompanhamentoNovos int,
+interiormetropolitana int
+)
+partitioned by (codmun int);
+
+#Inserir dados na tabela covid19_pais;
+insert into  covid19_pais 
+select regiao,
+coduf,
+data,
+semanaepi,
+populacaotcu2019,
+casosacumulado,
+casosnovos,
+obitosAcumulado,
+obitosNovos,
+Recuperadosnovos,
+emAcompanhamentoNovos,
+interiormetropolitana 
+from covid19 where coduf= 76;
+
+
+#Inserir dados na tabela covid19_regiao;
+insert into  covid19_regiao
+select 
+regiao ,
+estado ,
+coduf ,
+data ,
+semanaEpi ,
+populacaoTCU2019 ,
+casosAcumulado ,
+casosNovos ,
+obitosAcumulado ,
+obitosNovos ,
+Recuperadosnovos ,
+emAcompanhamentoNovos ,
+interiormetropolitana 
+from covid19 where coduf <> 76 and codmun is not null;
+
+
